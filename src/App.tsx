@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 import { z } from 'zod';
 import { addField, addRule, publishVersion, reorderFields, selectPreview, useSchemaHistoryQuery, type FormField, type RootState } from './store';
+import ReconPanel from './ReconPanel';
 
 const runtimeSchema = z.object({
   name: z.string().min(2, '请输入申请名称'),
@@ -72,10 +73,11 @@ export default function App() {
 
           <Grid size={{ xs: 12, lg: 5 }}>
             <Card><CardContent>
-              <Tabs value={tab} onChange={(_, value) => setTab(value)}><Tab label="版本差异" /><Tab label={t('simulate')} /><Tab label={t('runtime')} /></Tabs>
+              <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable"><Tab label="版本差异" /><Tab label={t('simulate')} /><Tab label={t('runtime')} /><Tab label="供应商对账" /></Tabs>
               {tab === 0 && <Box mt={2}><Typography fontWeight={700} mb={1}>v1 → {active.label}</Typography><Stack direction="row" gap={1} flexWrap="wrap">{active.fields.map((field) => <Chip key={field.id} label={`新增 ${field.label}`} color="success" variant="outlined" />)}</Stack><Alert severity="warning" sx={{ mt: 2 }}>旧版本解释保持冻结；过去提交的数据不会按新字段含义重新解释。</Alert><Typography mt={2} fontWeight={700}>其他历史版本</Typography>{history.map((version) => <Button key={version.id} fullWidth sx={{ justifyContent: 'space-between' }} onClick={() => dispatch(selectPreview(version.id))}>{version.label}<span>{version.createdAt}</span></Button>)}</Box>}
               {tab === 1 && <Box mt={2}><Typography fontWeight={700} mb={1}>选择旧数据快照</Typography>{snapshots.map((snapshot) => <Card key={snapshot.id} variant="outlined" sx={{ p: 2, mb: 1 }}><Typography>{snapshot.label}</Typography><Typography variant="body2" color="text.secondary" mb={1}>{JSON.stringify(snapshot.data)}</Typography><Button size="small" onClick={() => simulate(snapshot.id)}>模拟迁移</Button></Card>)}{migration && <Alert severity={migration.includes('缺少') ? 'warning' : 'success'}>{migration}</Alert>}</Box>}
               {tab === 2 && <Box component="form" mt={2} onSubmit={form.handleSubmit((values) => setRuntimeResult(values))}><Stack spacing={2}>{active.fields.map((field) => <TextField key={field.id} label={field.label} type={field.type === 'number' ? 'number' : 'text'} required={field.required} {...form.register(field.id as keyof z.infer<typeof runtimeSchema>, field.type === 'number' ? { valueAsNumber: true } : {})} error={Boolean(form.formState.errors[field.id as keyof typeof form.formState.errors])} helperText={form.formState.errors[field.id as keyof typeof form.formState.errors]?.message} />)}<Button type="submit" variant="contained">按当前版本提交</Button></Stack>{runtimeResult && <Alert severity="success" sx={{ mt: 2 }}>运行态数据：{JSON.stringify(runtimeResult)}</Alert>}<Alert severity="info" sx={{ mt: 2 }}>历史数据按创建时版本解释，不随字段新增而改变。</Alert></Box>}
+              {tab === 3 && <Box mt={2}><ReconPanel /></Box>}
             </CardContent></Card>
           </Grid>
         </Grid>

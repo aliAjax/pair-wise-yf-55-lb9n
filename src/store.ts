@@ -1,5 +1,6 @@
 import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
+import { reconReducer, replaceReconState, type ReconState } from './reconSlice';
 
 export type FieldType = 'text' | 'number' | 'select' | 'date';
 export interface FormField { id: string; label: string; type: FieldType; required: boolean; options?: string[]; }
@@ -90,10 +91,16 @@ export const schemaApi = createApi({
 
 export const { useSchemaHistoryQuery } = schemaApi;
 export const { addField, addRule, publishVersion, reorderFields, replaceState, selectPreview } = slice.actions;
-export const store = configureStore({ reducer: { schema: slice.reducer, [schemaApi.reducerPath]: schemaApi.reducer }, middleware: (getDefault) => getDefault().concat(schemaApi.middleware) });
+export const store = configureStore({ reducer: { schema: slice.reducer, recon: reconReducer, [schemaApi.reducerPath]: schemaApi.reducer }, middleware: (getDefault) => getDefault().concat(schemaApi.middleware) });
 if (typeof window !== 'undefined') {
   const saved = localStorage.getItem('yf55-schema-state');
   if (saved) store.dispatch(replaceState(JSON.parse(saved) as SchemaState));
-  store.subscribe(() => localStorage.setItem('yf55-schema-state', JSON.stringify((store.getState() as RootShape).schema)));
+  const savedRecon = localStorage.getItem('yf55-recon-state');
+  if (savedRecon) store.dispatch(replaceReconState(JSON.parse(savedRecon) as ReconState));
+  store.subscribe(() => {
+    const state = store.getState() as RootShape & { recon: ReconState };
+    localStorage.setItem('yf55-schema-state', JSON.stringify(state.schema));
+    localStorage.setItem('yf55-recon-state', JSON.stringify(state.recon));
+  });
 }
 export type RootState = RootShape;
