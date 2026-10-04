@@ -1,5 +1,6 @@
-import { configureStore, createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice, current, type PayloadAction } from '@reduxjs/toolkit';
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
+import { loadReconState, RECON_STORAGE_KEY, reconApi, reconReducer, replaceReconState, type ReconState } from './recon/store';
 
 export type FieldType = 'text' | 'number' | 'select' | 'date';
 export interface FormField { id: string; label: string; type: FieldType; required: boolean; options?: string[]; }
@@ -8,7 +9,7 @@ export interface FormVersion { id: string; label: string; createdAt: string; fie
 export interface Snapshot { id: string; versionId: string; label: string; data: Record<string, string>; }
 
 interface SchemaState { versions: FormVersion[]; rules: LinkRule[]; activeVersionId: string; previewVersionId: string; snapshots: Snapshot[]; }
-type RootShape = { schema: SchemaState };
+type RootShape = { schema: SchemaState; recon: ReconState };
 
 const initial: SchemaState = {
   activeVersionId: 'v1',
@@ -67,7 +68,7 @@ const slice = createSlice({
       const source = state.versions.find((item) => item.id === state.previewVersionId);
       if (!source) return;
       const id = `v${state.versions.length + 1}`;
-      state.versions.push({ ...structuredClone(source), id, label: `费用申请 ${id}`, createdAt: new Date().toISOString().slice(0, 10) });
+      state.versions.push({ ...current(source), id, label: `费用申请 ${id}`, createdAt: new Date().toISOString().slice(0, 10) });
       state.activeVersionId = id; state.previewVersionId = id;
     },
     selectPreview(state, action: PayloadAction<string>) { state.previewVersionId = action.payload; },
@@ -90,10 +91,18 @@ export const schemaApi = createApi({
 
 export const { useSchemaHistoryQuery } = schemaApi;
 export const { addField, addRule, publishVersion, reorderFields, replaceState, selectPreview } = slice.actions;
-export const store = configureStore({ reducer: { schema: slice.reducer, [schemaApi.reducerPath]: schemaApi.reducer }, middleware: (getDefault) => getDefault().concat(schemaApi.middleware) });
+export const store = configureStore({
+  reducer: { schema: slice.reducer, recon: reconReducer, [schemaApi.reducerPath]: schemaApi.reducer, [reconApi.reducerPath]: reconApi.reducer },
+  middleware: (getDefault) => getDefault().concat(schemaApi.middleware, reconApi.middleware)
+});
 if (typeof window !== 'undefined') {
   const saved = localStorage.getItem('yf55-schema-state');
   if (saved) store.dispatch(replaceState(JSON.parse(saved) as SchemaState));
-  store.subscribe(() => localStorage.setItem('yf55-schema-state', JSON.stringify((store.getState() as RootShape).schema)));
+  store.dispatch(replaceReconState(loadReconState()));
+  store.subscribe(() => {
+    const state = store.getState() as RootShape;
+    localStorage.setItem('yf55-schema-state', JSON.stringify(state.schema));
+    localStorage.setItem(RECON_STORAGE_KEY, JSON.stringify(state.recon));
+  });
 }
 export type RootState = RootShape;
